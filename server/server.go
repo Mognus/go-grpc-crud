@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -23,7 +24,7 @@ type ListConfig struct {
 	DefaultSort     string
 }
 
-func DefaultList[T any](db *gorm.DB, req ListRequest, cfg ListConfig) ([]T, int64, error) {
+func DefaultList[T any](ctx context.Context, db *gorm.DB, req ListRequest, cfg ListConfig) ([]T, int64, error) {
 	page, limit := int(req.Page), int(req.Limit)
 	if page < 1 {
 		page = 1
@@ -33,7 +34,7 @@ func DefaultList[T any](db *gorm.DB, req ListRequest, cfg ListConfig) ([]T, int6
 	}
 
 	var zero T
-	query := db.Model(&zero)
+	query := db.WithContext(ctx).Model(&zero)
 
 	for _, p := range cfg.Preloads {
 		query = query.Preload(p)
@@ -68,44 +69,45 @@ func DefaultList[T any](db *gorm.DB, req ListRequest, cfg ListConfig) ([]T, int6
 	return results, total, nil
 }
 
-func DefaultGet[T any](db *gorm.DB, id uint64, preloads ...string) (T, error) {
+func DefaultGet[T any](ctx context.Context, db *gorm.DB, id uint64, preloads ...string) (T, error) {
 	var result T
-	if err := withPreloads(db, preloads).First(&result, id).Error; err != nil {
+	if err := withPreloads(db.WithContext(ctx), preloads).First(&result, id).Error; err != nil {
 		return result, err
 	}
 	return result, nil
 }
 
-func DefaultCreate[T any](db *gorm.DB, model *T, preloads ...string) (*T, error) {
-	if err := db.Create(model).Error; err != nil {
+func DefaultCreate[T any](ctx context.Context, db *gorm.DB, model *T, preloads ...string) (*T, error) {
+	if err := db.WithContext(ctx).Create(model).Error; err != nil {
 		return nil, err
 	}
 	if len(preloads) > 0 {
-		if err := withPreloads(db, preloads).Find(model).Error; err != nil {
+		if err := withPreloads(db.WithContext(ctx), preloads).First(model).Error; err != nil {
 			return nil, err
 		}
 	}
 	return model, nil
 }
 
-func DefaultUpdate[T any](db *gorm.DB, id uint64, updates map[string]any, preloads ...string) (*T, error) {
+func DefaultUpdate[T any](ctx context.Context, db *gorm.DB, id uint64, updates map[string]any, preloads ...string) (*T, error) {
 	var result T
-	if err := db.First(&result, id).Error; err != nil {
+	d := db.WithContext(ctx)
+	if err := d.First(&result, id).Error; err != nil {
 		return nil, err
 	}
-	if err := db.Model(&result).Updates(updates).Error; err != nil {
+	if err := d.Model(&result).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 	if len(preloads) > 0 {
-		if err := withPreloads(db, preloads).Find(&result, id).Error; err != nil {
+		if err := withPreloads(d, preloads).First(&result, id).Error; err != nil {
 			return nil, err
 		}
 	}
 	return &result, nil
 }
 
-func DefaultDelete(db *gorm.DB, model any, id uint64) error {
-	return db.Delete(model, id).Error
+func DefaultDelete(ctx context.Context, db *gorm.DB, model any, id uint64) error {
+	return db.WithContext(ctx).Delete(model, id).Error
 }
 
 func withPreloads(db *gorm.DB, preloads []string) *gorm.DB {
