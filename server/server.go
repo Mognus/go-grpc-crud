@@ -70,18 +70,49 @@ func DefaultList[T any](db *gorm.DB, req ListRequest, cfg ListConfig) ([]T, int6
 
 func DefaultGet[T any](db *gorm.DB, id uint64, preloads ...string) (T, error) {
 	var result T
-	q := db.Model(&result)
-	for _, p := range preloads {
-		q = q.Preload(p)
-	}
-	if err := q.First(&result, id).Error; err != nil {
+	if err := withPreloads(db, preloads).First(&result, id).Error; err != nil {
 		return result, err
 	}
 	return result, nil
 }
 
+func DefaultCreate[T any](db *gorm.DB, model *T, preloads ...string) (*T, error) {
+	if err := db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	if len(preloads) > 0 {
+		if err := withPreloads(db, preloads).Find(model).Error; err != nil {
+			return nil, err
+		}
+	}
+	return model, nil
+}
+
+func DefaultUpdate[T any](db *gorm.DB, id uint64, updates map[string]any, preloads ...string) (*T, error) {
+	var result T
+	if err := db.First(&result, id).Error; err != nil {
+		return nil, err
+	}
+	if err := db.Model(&result).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	if len(preloads) > 0 {
+		if err := withPreloads(db, preloads).Find(&result, id).Error; err != nil {
+			return nil, err
+		}
+	}
+	return &result, nil
+}
+
 func DefaultDelete(db *gorm.DB, model any, id uint64) error {
 	return db.Delete(model, id).Error
+}
+
+func withPreloads(db *gorm.DB, preloads []string) *gorm.DB {
+	for _, p := range preloads {
+		db = db.Preload(p)
+	}
+	return db
 }
 
 func applyFilters(query *gorm.DB, filters map[string]string) *gorm.DB {
