@@ -32,7 +32,7 @@ func DefaultListProxy(call ListCallFunc) fiber.Handler {
 			}
 		})
 
-		items, total, err := call(context.Background(), page, limit, c.Query("search"), filters, c.Query("sort_by"), c.Query("sort_order"))
+		items, total, err := call(c.UserContext(), page, limit, c.Query("search"), filters, c.Query("sort_by"), c.Query("sort_order"))
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -47,7 +47,7 @@ func DefaultGetProxy(call func(ctx context.Context, id uint64) (any, error)) fib
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 		}
-		item, err := call(context.Background(), id)
+		item, err := call(c.UserContext(), id)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -61,7 +61,7 @@ func DefaultCreateProxy(call func(ctx context.Context, data map[string]any) (any
 		if err := c.BodyParser(&data); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 		}
-		item, err := call(context.Background(), data)
+		item, err := call(c.UserContext(), data)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -79,7 +79,7 @@ func DefaultUpdateProxy(call func(ctx context.Context, id uint64, data map[strin
 		if err := c.BodyParser(&data); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 		}
-		item, err := call(context.Background(), id, data)
+		item, err := call(c.UserContext(), id, data)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -93,7 +93,7 @@ func DefaultDeleteProxy(call func(ctx context.Context, id uint64) error) fiber.H
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 		}
-		if err := call(context.Background(), id); err != nil {
+		if err := call(c.UserContext(), id); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		return c.SendStatus(fiber.StatusNoContent)
