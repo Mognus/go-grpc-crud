@@ -55,13 +55,13 @@ func DefaultGetProxy(call func(ctx context.Context, id uint64) (any, error)) fib
 	}
 }
 
-func DefaultCreateProxy(call func(ctx context.Context, data map[string]any) (any, error)) fiber.Handler {
+func DefaultCreateProxy[T any](call func(ctx context.Context, req *T) (any, error)) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		var data map[string]any
-		if err := c.BodyParser(&data); err != nil {
+		var req T
+		if err := c.BodyParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 		}
-		item, err := call(c.UserContext(), data)
+		item, err := call(c.UserContext(), &req)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -69,17 +69,17 @@ func DefaultCreateProxy(call func(ctx context.Context, data map[string]any) (any
 	}
 }
 
-func DefaultUpdateProxy(call func(ctx context.Context, id uint64, data map[string]any) (any, error)) fiber.Handler {
+func DefaultUpdateProxy[T any](call func(ctx context.Context, id uint64, req *T) (any, error)) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
 		}
-		var data map[string]any
-		if err := c.BodyParser(&data); err != nil {
+		var req T
+		if err := c.BodyParser(&req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
 		}
-		item, err := call(c.UserContext(), id, data)
+		item, err := call(c.UserContext(), id, &req)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
