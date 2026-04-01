@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 
+	apperrors "github.com/Mognus/go-grpc-crud/errors"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -34,7 +35,7 @@ func DefaultListProxy(call ListCallFunc) fiber.Handler {
 
 		items, total, err := call(c.UserContext(), page, limit, c.Query("search"), filters, c.Query("sort_by"), c.Query("sort_order"))
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return apperrors.GrpcToHTTP(err)
 		}
 
 		return c.JSON(ListResponse{Items: items, Total: total, Page: int(page), Limit: int(limit)})
@@ -45,11 +46,11 @@ func DefaultGetProxy(call func(ctx context.Context, id uint64) (any, error)) fib
 	return func(c *fiber.Ctx) error {
 		id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+			return apperrors.BadRequest("invalid id")
 		}
 		item, err := call(c.UserContext(), id)
 		if err != nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+			return apperrors.GrpcToHTTP(err)
 		}
 		return c.JSON(item)
 	}
@@ -59,11 +60,11 @@ func DefaultCreateProxy[T any](call func(ctx context.Context, req *T) (any, erro
 	return func(c *fiber.Ctx) error {
 		var req T
 		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+			return apperrors.BadRequest("invalid body")
 		}
 		item, err := call(c.UserContext(), &req)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return apperrors.GrpcToHTTP(err)
 		}
 		return c.Status(fiber.StatusCreated).JSON(item)
 	}
@@ -73,15 +74,15 @@ func DefaultUpdateProxy[T any](call func(ctx context.Context, id uint64, req *T)
 	return func(c *fiber.Ctx) error {
 		id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+			return apperrors.BadRequest("invalid id")
 		}
 		var req T
 		if err := c.BodyParser(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+			return apperrors.BadRequest("invalid body")
 		}
 		item, err := call(c.UserContext(), id, &req)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return apperrors.GrpcToHTTP(err)
 		}
 		return c.JSON(item)
 	}
@@ -91,10 +92,10 @@ func DefaultDeleteProxy(call func(ctx context.Context, id uint64) error) fiber.H
 	return func(c *fiber.Ctx) error {
 		id, err := strconv.ParseUint(c.Params("id"), 10, 64)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid id"})
+			return apperrors.BadRequest("invalid id")
 		}
 		if err := call(c.UserContext(), id); err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			return apperrors.GrpcToHTTP(err)
 		}
 		return c.SendStatus(fiber.StatusNoContent)
 	}
