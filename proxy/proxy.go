@@ -6,6 +6,8 @@ import (
 
 	apperrors "github.com/Mognus/go-grpc-crud/errors"
 	"github.com/gofiber/fiber/v2"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 type ListResponse struct {
@@ -56,10 +58,17 @@ func DefaultGetProxy(call func(ctx context.Context, id uint64) (any, error)) fib
 	}
 }
 
+func parseBody[T any](c *fiber.Ctx, req *T) error {
+	if m, ok := any(req).(proto.Message); ok {
+		return protojson.UnmarshalOptions{DiscardUnknown: true}.Unmarshal(c.Body(), m)
+	}
+	return c.BodyParser(req)
+}
+
 func DefaultCreateProxy[T any](call func(ctx context.Context, req *T) (any, error)) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req T
-		if err := c.BodyParser(&req); err != nil {
+		if err := parseBody(c, &req); err != nil {
 			return apperrors.BadRequest("invalid body")
 		}
 		item, err := call(c.UserContext(), &req)
@@ -77,7 +86,7 @@ func DefaultUpdateProxy[T any](call func(ctx context.Context, id uint64, req *T)
 			return apperrors.BadRequest("invalid id")
 		}
 		var req T
-		if err := c.BodyParser(&req); err != nil {
+		if err := parseBody(c, &req); err != nil {
 			return apperrors.BadRequest("invalid body")
 		}
 		item, err := call(c.UserContext(), id, &req)
