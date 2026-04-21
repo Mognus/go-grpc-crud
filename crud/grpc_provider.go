@@ -10,10 +10,10 @@ type GRPCProvider interface {
 	GetModelName() string
 	GetSchema() Schema
 
-	ListHandler() fiber.Handler
-	SchemaHandler() fiber.Handler
-	GetHandler() fiber.Handler
-	CreateHandler() fiber.Handler
-	UpdateHandler() fiber.Handler
-	DeleteHandler() fiber.Handler
+	HandleList(c *fiber.Ctx) error
+	HandleSchema(c *fiber.Ctx) error
+	HandleGet(c *fiber.Ctx) error
+	HandleCreate(c *fiber.Ctx) error
+	HandleUpdate(c *fiber.Ctx) error
+	HandleDelete(c *fiber.Ctx) error
 }
