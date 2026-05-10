@@ -21,6 +21,7 @@ type ListRequest struct {
 type ListConfig struct {
 	Preloads        []string
 	Searchable      []string
+	Filterable      []string
 	SortableColumns []string
 	DefaultSort     string
 }
@@ -51,7 +52,7 @@ func DefaultList[T any](ctx context.Context, db *gorm.DB, req ListRequest, cfg L
 		query = query.Where(strings.Join(conditions, " OR "), values...)
 	}
 
-	query = applyFilters(query, req.Filters)
+	query = applyFilters(query, req.Filters, cfg.Filterable)
 
 	var total int64
 	query.Count(&total)
@@ -120,11 +121,24 @@ func withPreloads(db *gorm.DB, preloads []string) *gorm.DB {
 
 var ns = schema.NamingStrategy{}
 
-func applyFilters(query *gorm.DB, filters map[string]string) *gorm.DB {
+func applyFilters(query *gorm.DB, filters map[string]string, filterable []string) *gorm.DB {
+	allowed := make(map[string]bool, len(filterable))
+	for _, f := range filterable {
+		allowed[f] = true
+	}
+
 	for key, value := range filters {
 		if value == "" {
 			continue
 		}
+		baseKey := key
+		if idx := strings.Index(key, "__"); idx != -1 {
+			baseKey = key[:idx]
+		}
+		if len(allowed) > 0 && !allowed[baseKey] {
+			continue
+		}
+
 		if idx := strings.Index(key, "__"); idx != -1 {
 			field, op := ns.ColumnName("", key[:idx]), key[idx+2:]
 			switch op {
@@ -167,5 +181,5 @@ func applySorting(query *gorm.DB, sortBy, sortOrder string, allowed []string, de
 	if strings.ToLower(sortOrder) == "desc" {
 		order = "DESC"
 	}
-	return query.Order(sortBy + " " + order)
+	return query.Order(ns.ColumnName("", sortBy) + " " + order)
 }
