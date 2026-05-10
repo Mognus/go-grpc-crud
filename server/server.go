@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type ListRequest struct {
@@ -117,13 +118,15 @@ func withPreloads(db *gorm.DB, preloads []string) *gorm.DB {
 	return db
 }
 
+var ns = schema.NamingStrategy{}
+
 func applyFilters(query *gorm.DB, filters map[string]string) *gorm.DB {
 	for key, value := range filters {
 		if value == "" {
 			continue
 		}
 		if idx := strings.Index(key, "__"); idx != -1 {
-			field, op := key[:idx], key[idx+2:]
+			field, op := ns.ColumnName("", key[:idx]), key[idx+2:]
 			switch op {
 			case "contains":
 				query = query.Where(fmt.Sprintf("%s ILIKE ?", field), "%"+value+"%")
@@ -143,7 +146,7 @@ func applyFilters(query *gorm.DB, filters map[string]string) *gorm.DB {
 				query = query.Where(fmt.Sprintf("%s != ?", field), value)
 			}
 		} else {
-			query = query.Where(fmt.Sprintf("%s = ?", key), value)
+			query = query.Where(fmt.Sprintf("%s = ?", ns.ColumnName("", key)), value)
 		}
 	}
 	return query
