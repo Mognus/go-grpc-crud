@@ -108,6 +108,41 @@ func DefaultUpdate[T any](ctx context.Context, db *gorm.DB, id uint64, updates m
 	return &result, nil
 }
 
+func DefaultReplaceChildren[T any, C any](ctx context.Context, db *gorm.DB, id uint64, updates map[string]any, foreignKey string, children []C, setForeignKey func(*C, uint64), preloads ...string) (*T, error) {
+	var result *T
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		updated, err := DefaultUpdate[T](ctx, tx, id, updates)
+		if err != nil {
+			return err
+		}
+
+		if err := tx.Where(foreignKey+" = ?", id).Delete(new(C)).Error; err != nil {
+			return err
+		}
+
+		for i := range children {
+			setForeignKey(&children[i], id)
+		}
+		if len(children) > 0 {
+			if err := tx.Create(&children).Error; err != nil {
+				return err
+			}
+		}
+
+		if len(preloads) == 0 {
+			result = updated
+			return nil
+		}
+		reloaded, err := DefaultGet[T](ctx, tx, id, preloads...)
+		if err != nil {
+			return err
+		}
+		result = &reloaded
+		return nil
+	})
+	return result, err
+}
+
 func DefaultDelete(ctx context.Context, db *gorm.DB, model any, id uint64) error {
 	return db.WithContext(ctx).Delete(model, id).Error
 }
